@@ -45,7 +45,7 @@
 #ifndef VA_NARGS_H_
 #define VA_NARGS_H_
 
-#define CONCAT_IMPL(l, r) l##r
+#define CONCAT_IMPL(l, r) l ## r
 #define CONCAT(l, r) CONCAT_IMPL( l, r )
 
 // clang-format off
