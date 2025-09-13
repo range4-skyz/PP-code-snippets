@@ -36,9 +36,9 @@
 // - MSVC(x64/x86)          : https://godbolt.org/z/Yaq7hehfr [ /Zc:preprocessor /Zc:__cplusplus /std:c++20 ]
 
 //// ---- Key Points:
-// - How to handle zero arguments for variadic parameters ???
-// 1. , ##__VA_ARGS__            (from GCC extension), But MSVC not supports it :(
-// 2. __VA_OPT__(, ) __VA_ARGS__ (since C++20)
+// - Q: How to handle zero arguments for variadic parameters ???
+// A1. , ##__VA_ARGS__            (from GCC extension), But MSVC not supports it :(
+// A2. __VA_OPT__(,) __VA_ARGS__ (since C++20)
 
 /* clang-format on */
 
@@ -81,7 +81,7 @@
 /* Count the number of variadic macro arguments
 - Usage:
 +----------------------------------------------------------+
-     #if defined(__cplusplus) && __cplusplus >= 202002L    |
+|    #if defined(__cplusplus) && __cplusplus >= 202002L    |
 |        VA_NARGS()       // -> 0                          |
 |    #endif                                                |
 |                                                          |
@@ -144,7 +144,7 @@
 |   FOO(a, b, c)        // expands to FOO3(a, b, c) = ((a) + (b) + (c))         |
 |                                                                               |
 |   BAR(a, 'b', 10, "Hello, World!", 3.14)                                      |
-    // -> expands to BAR5(a, 'b', 10, "Hello, World!", 3.14)                    |
+|   // -> expands to BAR5(a, 'b', 10, "Hello, World!", 3.14)                    |
 +-------------------------------------------------------------------------------+ */
 #define FUNC_OVERLOAD_ON_NARGS(prefix, ...) CONCAT( prefix, VA_NARGS( __VA_ARGS__ ) )( __VA_ARGS__ )
 

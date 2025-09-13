@@ -23,10 +23,12 @@
 // SOFTWARE.
 
 //// ---- References:
+// - https://gcc.gnu.org/onlinedocs/cpp/Macros.html
 //
+// - https://www.ashn.dev/blog/2020-01-06-c-array-length.html
 
 //// ---- Godbolt Tests:
-//
+// - GCC/Clang/MinGW/MSVC(x86-64): https://godbolt.org/z/95enqYbs6
 
 //// ---- Key Points:
 //
@@ -36,8 +38,8 @@
 #ifndef BASE_MACROS_H_
 #define BASE_MACROS_H_
 
-#include <assert.h>
-#include <stdint.h>
+#include <assert.h> // for assert(expr)
+#include <stdint.h> // for size_t
 
 #define TOSTRING_IMPL(x) #x
 #define TOSTRING(x) TOSTRING_IMPL( x )
