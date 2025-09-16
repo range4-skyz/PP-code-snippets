@@ -23,8 +23,13 @@
 // SOFTWARE.
 
 //// ---- References:
+// - https://open-std.org/JTC1/SC22/WG14/www/docs/n3033.htm
+// - https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1042r1.html
+//
 // - https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html
-// - https://en.cppreference.com/w/cpp/preprocessor/replace
+// - https://learn.microsoft.com/en-us/cpp/preprocessor/variadic-macros?view=msvc-170
+//
+// - https://en.wikipedia.org/wiki/Variadic_macro_in_the_C_preprocessor
 //
 // - https://stackoverflow.com/questions/2124339/c-preprocessor-va-args-number-of-arguments
 // - https://stackoverflow.com/questions/11761703/overloading-macro-on-number-of-arguments
@@ -32,13 +37,38 @@
 // - https://gist.github.com/aprell/3722962
 
 //// ---- Godbolt Tests:
-// - GCC/Clang/MinGW(x86-64): https://godbolt.org/z/EMn8evrEx [ -E ]
-// - MSVC(x64/x86)          : https://godbolt.org/z/Yaq7hehfr [ /Zc:preprocessor /Zc:__cplusplus /std:c++20 ]
+// - C
+//      - GCC/Clang(x86-64) : https://godbolt.org/z/zzTjax36M [ -E -std=c99|c23 ]
+//      - MinGW W64(x86-64) : https://godbolt.org/z/71xGh46zc [ -E -std=c99|??? ]
+//      - MSVC(x86/x64)     : https://godbolt.org/z/hnfMbcj9M [ /EP /Zc:preprocessor /std:c99|clatest]
+// - C++
+//      - GCC/Clang(x86-64) : https://godbolt.org/z/E75ca46v4 [ -E -std=c++98|c++20 ]
+//      - MinGW W64(x86-64) : https://godbolt.org/z/KerK6Gs7v [ -E -std=c++98|c++20 ]
+//      - MSVC(x86/x64)     : https://godbolt.org/z/7fYWa3boa [ /EP /Zc:preprocessor /Zc:__cplusplus /std:c++98|c++20]
+
+/* Based on tests on the Godbolt platform
+ * ✔ means preprocessing succeeded and ✘ means preprocessing failed.
++-----------------+-------+-------+-------+---------+---------+---------+
+| Compilers\STDs  |  C99  |  C11  |  C23  |  C++98  |  C++11  |  C++20  |
++-----------------+-------+-------+-------+---------+---------+---------+
+| GCC(x86-64)     |   ✘   |   ✘   |   ✔   |    ✘    |    ✘    |    ✔    |
++-----------------+-------+-------+-------+---------+---------+---------+
+| Clang(x86-64)   |   ✘   |   ✘   |   ✔   |    ✔    |    ✔    |    ✔    |
++-----------------+-------+-------+-------+---------+---------+---------+
+| MinGW W64(GCC)  |   ✘   |   ✘   |   ✔   |    ✘    |    ✘    |    ✔    |
++-----------------+-------+-------+-------+---------+---------+---------+
+| MinGW W64(Glang)|   ✘   |   ✘   |   ✔   |    ✔    |    ✔    |    ✔    |
++-----------------+-------+-------+-------+---------+---------+---------+
+| MSVC x86        |   ✔   |   ✔   |   ✔   |    ✔    |    ✔    |    ✔    |
++-----------------+-------+-------+-------+---------+---------+---------+
+| MSVC x64        |   ✔   |   ✔   |   ✔   |    ✔    |    ✔    |    ✔    |
++-----------------+-------+-------+-------+---------+---------+---------+  
+*/
 
 //// ---- Key Points:
 // - Q: How to handle zero arguments for variadic parameters ???
-// A1. , ##__VA_ARGS__            (from GCC extension), But MSVC not supports it :(
-// A2. __VA_OPT__(,) __VA_ARGS__ (since C++20)
+// A1. _, ##__VA_ARGS__           (From GCC extension)
+// A2. __VA_OPT__(,) __VA_ARGS__  (Since C++20 and C23)
 
 /* clang-format on */
 
@@ -49,16 +79,7 @@
 #define CONCAT(l, r) CONCAT_IMPL( l, r )
 
 // clang-format off
-#define VA_ARGS_N_0(_0,                       \
-      _1, _2, _3, _4, _5, _6, _7, _8, _9,_10, \
-     _11,_12,_13,_14,_15,_16,_17,_18,_19,_20, \
-     _21,_22,_23,_24,_25,_26,_27,_28,_29,_30, \
-     _31,_32,_33,_34,_35,_36,_37,_38,_39,_40, \
-     _41,_42,_43,_44,_45,_46,_47,_48,_49,_50, \
-     _51,_52,_53,_54,_55,_56,_57,_58,_59,_60, \
-     _61,_62,_63, N,...) N
-
-#define VA_ARGS_N_1( \
+#define VA_ARGS_N(_0,                       \
       _1, _2, _3, _4, _5, _6, _7, _8, _9,_10, \
      _11,_12,_13,_14,_15,_16,_17,_18,_19,_20, \
      _21,_22,_23,_24,_25,_26,_27,_28,_29,_30, \
@@ -80,43 +101,38 @@
 
 /* Count the number of variadic macro arguments
 - Usage:
-+----------------------------------------------------------+
-|    #if defined(__cplusplus) && __cplusplus >= 202002L    |
-|        VA_NARGS()       // -> 0                          |
-|    #endif                                                |
-|                                                          |
-|    VA_NARGS(A)          // -> 1                          |
-|    VA_NARGS(A,B)        // -> 2                          |
-|    VA_NARGS(A,B,C)      // -> 3                          |
-|    VA_NARGS(A,B,C,D)    // -> 4                          |
-|    VA_NARGS(A,B,C,D,E)  // -> 5                          |
-|    VA_NARGS(1,2,3,4,5,6,7,8,9,0,                         |
-|         1,2,3,4,5,6,7,8,9,0,                             |
-|         1,2,3,4,5,6,7,8,9,0,                             |
-|         1,2,3,4,5,6,7,8,9,0,                             |
-|         1,2,3,4,5,6,7,8,9,0,                             |
-|         1,2,3,4,5,6,7,8,9,0,                             |
-|         1,2,3)     // -> 63                              |
-+----------------------------------------------------------+ */
-#if defined(__GNUC__) || defined(__clang__)
-    #define VA_NARGS_IMPL(...) VA_ARGS_N_0( __VA_ARGS__ )
-    #if defined(__cplusplus) && __cplusplus >= 202002L
-        #define VA_NARGS(...) VA_NARGS_IMPL( dummy __VA_OPT__(,) __VA_ARGS__, VA_RSEQ_N() )
-    #else
-        #define VA_NARGS(...) VA_NARGS_IMPL( dummy, ##__VA_ARGS__, VA_RSEQ_N() )
-    #endif
-#elif defined(_MSC_VER)
-    #if defined(__cplusplus) && __cplusplus >= 202002L
-        #define VA_NARGS_IMPL(...) VA_ARGS_N_0( __VA_ARGS__ )
-        #define VA_NARGS(...) VA_NARGS_IMPL( dummy __VA_OPT__(,) __VA_ARGS__, VA_RSEQ_N() )
-    #else
-        /* NOTE: MSVC did not support zero arguments
-                 for variadic macros before C++20 (__VA_OPT__) */
-        #define VA_NARGS_IMPL(...) VA_ARGS_N_1( __VA_ARGS__ )
-        #define VA_NARGS(...) VA_NARGS_IMPL( __VA_ARGS__, VA_RSEQ_N() )
-    #endif
++-----------------------------------------------------------------------+
+|    #if (defined(__cplusplus) && __cplusplus >= 202002L) \             |
+|        || (defined(__STDC_VERSION__) && __STDC_VERSION__>= 202311L)   |
+|    VA_NARGS()           // -> 0                                       |
+|    #endif                                                             |
+|                                                                       |
+|    VA_NARGS(A)          // -> 1                                       |
+|    VA_NARGS(A,B)        // -> 2                                       |
+|    VA_NARGS(A,B,C)      // -> 3                                       |
+|    VA_NARGS(A,B,C,D)    // -> 4                                       |
+|    VA_NARGS(A,B,C,D,E)  // -> 5                                       |
+|    VA_NARGS(1,2,3,4,5,6,7,8,9,0,                                      |
+|         1,2,3,4,5,6,7,8,9,0,                                          |
+|         1,2,3,4,5,6,7,8,9,0,                                          |
+|         1,2,3,4,5,6,7,8,9,0,                                          |
+|         1,2,3,4,5,6,7,8,9,0,                                          |
+|         1,2,3,4,5,6,7,8,9,0,                                          |
+|         1,2,3)     // -> 63                                           |
++-----------------------------------------------------------------------+ */
+/* Since C23 / C++20, GCC, Clang, and MSVC compilers can use `__VA_OPT__`
+   to remove an extra comma when variadic macro arguments are empty.
+ * Prior to that, you could explicitly control comma removal by reusing the token‑pasting operator
+ `##` (an extension from GNU CPP but Clang CPP and MSVC C/CPP later also supports). */
+#if (defined(__cplusplus) && __cplusplus >= 202002L)              \
+    || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L)
+    #define VA_NARGS_IMPL(...) VA_ARGS_N( __VA_ARGS__ )
+    #define VA_NARGS(...) VA_NARGS_IMPL( _dummy __VA_OPT__(,) __VA_ARGS__, VA_RSEQ_N() )
 #else
-    #define VA_NARGS(...)
+    /* WARN: However, for GNU C/CPP and Clang C, the token‑pasting operator `##` does not take
+      effect. it causes VA_NARGS() to yield 1 instead of 0. */
+    #define VA_NARGS_IMPL(...) VA_ARGS_N( __VA_ARGS__ )
+    #define VA_NARGS(...) VA_NARGS_IMPL( _dummy, ## __VA_ARGS__, VA_RSEQ_N() )
 #endif
 
 /* Overloading API macros based on the number of arguments.
@@ -135,8 +151,9 @@
 |   #define FOO2(x, y) ((x) + (y))                                              |
 |   #define FOO3(x, y, z) ((x) + (y) + (z))                                     |
 |                                                                               |
-|   #if defined(__cplusplus) && __cplusplus >= 202002L                          |
-|       FOO()           // expands to FOO0()        = 0                         |
+|   #if (defined(__cplusplus) && __cplusplus >= 202002L) \                      |
+|        || (defined(__STDC_VERSION__) && __STDC_VERSION__>= 202311L)           |
+|   FOO()               // expands to FOO0()        = 0                         |
 |   #endif                                                                      |
 |                                                                               |
 |   FOO(a)              // expands to FOO1(a)       = a                         |
